@@ -16,6 +16,10 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.units import inch
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from moviepy.editor import VideoFileClip
+import tempfile
+import uuid
+
 
 st.set_page_config(page_title="AI Meeting Minutes Generator", layout="centered")
 
@@ -205,6 +209,33 @@ def generate_docx(text):
     buffer.seek(0)
     return buffer
 
+def transcribe_audio_with_whisper(audio_file):
+    import requests
+
+    whisper_url = "https://api.groq.com/openai/v1/audio/transcriptions"
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}"
+    }
+
+    files = {
+        "file": (audio_file.name, audio_file.read(), "application/octet-stream"),
+        "model": (None, "whisper-large-v3")
+    }
+
+    response = requests.post(whisper_url, headers=headers, files=files)
+
+    if response.status_code == 200:
+        return response.json().get("text", "")
+    else:
+        st.error(f"Failed to transcribe audio. Status code: {response.status_code}")
+        return ""
+
+
+def convert_video_to_audio(video_path, audio_path="temp_audio.mp3"):
+    with VideoFileClip(video_path) as video:
+        video.audio.write_audiofile(audio_path)
+    return audio_path
+
 def main():
     st.markdown("""
     <div class="gradient-header-box" id="ai-home">
@@ -222,7 +253,7 @@ def main():
         st.markdown('<a href="#ai-contact">📬 Contact</a>', unsafe_allow_html=True)
 
     with st.expander("📄 Step 1: Provide Meeting Transcript"):
-        input_method = st.radio("Choose input method", ["Paste Transcript", "Upload File"])
+        input_method = st.radio("Choose input method", ["Paste Transcript", "Upload File", "Upload Audio"])
         transcript = ""
 
         if input_method == "Paste Transcript":
@@ -235,6 +266,47 @@ def main():
                     transcript = extract_text_from_pdf(uploaded_file)
                 elif file_type == "docx":
                     transcript = extract_text_from_docx(uploaded_file)
+        elif input_method == "Upload Audio":
+            uploaded_file = st.file_uploader("Upload an audio or video file (MP3 or MP4)", type=["mp3", "mp4"])
+            if uploaded_file:
+                unique_id = str(uuid.uuid4())
+                temp_dir = tempfile.gettempdir()
+
+                if uploaded_file.type == "video/mp4":
+                    with st.spinner("Processing video file..."):
+                        video_path = os.path.join(temp_dir, f"video_{unique_id}.mp4")
+                        audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
+                        try:
+                            with open(video_path, "wb") as f:
+                                f.write(uploaded_file.read())
+
+                            convert_video_to_audio(video_path, audio_path)
+
+                            with open(audio_path, "rb") as audio_file:
+                                transcript = transcribe_audio_with_whisper(audio_file)
+                        finally:
+                            for path in [video_path, audio_path]:
+                                try:
+                                    if os.path.exists(path):
+                                        os.remove(path)
+                                except Exception as e:
+                                    st.warning(f"Could not delete temp file: {path}")
+                else:
+                    with st.spinner("Processing audio file..."):
+                        audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
+                        try:
+                            with open(audio_path, "wb") as f:
+                                f.write(uploaded_file.read())
+
+                            with open(audio_path, "rb") as audio_file:
+                                transcript = transcribe_audio_with_whisper(audio_file)
+                        finally:
+                            try:
+                                if os.path.exists(audio_path):
+                                    os.remove(audio_path)
+                            except Exception as e:
+                                st.warning(f"Could not delete temp file: {audio_path}")
+
 
     if st.button("🚀 Generate Meeting Minutes"):
         if not transcript.strip():
