@@ -271,41 +271,50 @@ def main():
             if uploaded_file:
                 unique_id = str(uuid.uuid4())
                 temp_dir = tempfile.gettempdir()
+                progress = st.progress(0, text="Starting processing...")
 
                 if uploaded_file.type == "video/mp4":
-                    with st.spinner("Processing video file..."):
-                        video_path = os.path.join(temp_dir, f"video_{unique_id}.mp4")
-                        audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
-                        try:
-                            with open(video_path, "wb") as f:
-                                f.write(uploaded_file.read())
+                    video_path = os.path.join(temp_dir, f"video_{unique_id}.mp4")
+                    audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
+                    try:
+                        progress.progress(10, text="Saving uploaded video...")
+                        with open(video_path, "wb") as f:
+                            f.write(uploaded_file.read())
 
-                            convert_video_to_audio(video_path, audio_path)
+                        progress.progress(30, text="Converting video to audio...")
+                        convert_video_to_audio(video_path, audio_path)
 
-                            with open(audio_path, "rb") as audio_file:
-                                transcript = transcribe_audio_with_whisper(audio_file)
-                        finally:
-                            for path in [video_path, audio_path]:
-                                try:
-                                    if os.path.exists(path):
-                                        os.remove(path)
-                                except Exception as e:
-                                    st.warning(f"Could not delete temp file: {path}")
-                else:
-                    with st.spinner("Processing audio file..."):
-                        audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
-                        try:
-                            with open(audio_path, "wb") as f:
-                                f.write(uploaded_file.read())
+                        progress.progress(60, text="Transcribing audio with Whisper...")
+                        with open(audio_path, "rb") as audio_file:
+                            transcript = transcribe_audio_with_whisper(audio_file)
 
-                            with open(audio_path, "rb") as audio_file:
-                                transcript = transcribe_audio_with_whisper(audio_file)
-                        finally:
+                        progress.progress(100, text="✅ Finished processing!")
+                    finally:
+                        for path in [video_path, audio_path]:
                             try:
-                                if os.path.exists(audio_path):
-                                    os.remove(audio_path)
+                                if os.path.exists(path):
+                                    os.remove(path)
                             except Exception as e:
-                                st.warning(f"Could not delete temp file: {audio_path}")
+                                st.warning(f"Could not delete temp file: {path}")
+                elif uploaded_file.type == "audio/mp3":
+                    audio_path = os.path.join(temp_dir, f"audio_{unique_id}.mp3")
+                    try:
+                        progress.progress(10, text="Saving uploaded audio...")
+                        with open(audio_path, "wb") as f:
+                            f.write(uploaded_file.read())
+
+                        progress.progress(50, text="Transcribing audio with Whisper...")
+                        with open(audio_path, "rb") as audio_file:
+                            transcript = transcribe_audio_with_whisper(audio_file)
+
+                        progress.progress(100, text="✅ Finished processing!")
+                    finally:
+                        try:
+                            if os.path.exists(audio_path):
+                                os.remove(audio_path)
+                        except Exception as e:
+                            st.warning(f"Could not delete temp file: {audio_path}")
+
 
 
     if st.button("🚀 Generate Meeting Minutes"):
