@@ -124,7 +124,6 @@ def create_chain(llm, full_summary=True):
     return {"transcript": RunnablePassthrough()} | prompt | llm | StrOutputParser()
 
 
-# --- Text Extraction ---
 def extract_text_from_pdf(uploaded_file):
     reader = PyPDF2.PdfReader(BytesIO(uploaded_file.read()))
     return "\n".join([page.extract_text() or "" for page in reader.pages]).strip()
@@ -132,7 +131,7 @@ def extract_text_from_pdf(uploaded_file):
 def extract_text_from_docx(uploaded_file):
     return "\n".join([para.text for para in docx.Document(uploaded_file).paragraphs]).strip()
 
-# --- File Generators ---
+
 def generate_pdf_with_reportlab(text):
     from markdown2 import markdown
     import html
@@ -141,7 +140,7 @@ def generate_pdf_with_reportlab(text):
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=50, leftMargin=50, topMargin=50, bottomMargin=50)
     styles = getSampleStyleSheet()
     
-    # Use built-in fonts instead of custom ones
+
     styles.add(ParagraphStyle(name='Custom', fontName='Helvetica', fontSize=11, leading=16))
     styles.add(ParagraphStyle(name='Heading', fontName='Helvetica-Bold', fontSize=18, leading=24, spaceAfter=14, spaceBefore=14))
 
@@ -170,7 +169,6 @@ def generate_docx(text):
     buffer.seek(0)
     return buffer
 
-# --- Transcription ---
 def transcribe_audio_with_whisper(audio_file):
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
     files = {"file": (audio_file.name, audio_file.read(), "application/octet-stream"), "model": (None, "whisper-large-v3")}
@@ -196,7 +194,6 @@ def transcribe_audio_with_whisper(audio_file):
             time.sleep(2)
     return ""
 
-# --- Chunked Audio Transcription ---
 def split_audio_and_transcribe(audio_path, chunk_duration_sec=300):
     duration = get_audio_duration(audio_path)
     if not duration:
@@ -258,7 +255,6 @@ def extract_audio_from_uploaded_video(file):
         st.error(f"Video processing failed: {e}")
         return None
 
-# --- Main App ---
 def main():
     st.markdown("""<div class="gradient-header-box" id="ai-home"><h1>AI Meeting Minutes Generator</h1></div>""", unsafe_allow_html=True)
 
@@ -358,7 +354,7 @@ def main():
 
                 combined_summary = "\n".join(partial_results)
 
-                # Final full summary from combined chunk summaries
+                
                 final_chain = create_chain(llm, full_summary=True)
                 result = final_chain.invoke(combined_summary)
 
