@@ -25,7 +25,6 @@ from math import ceil
 
 st.set_page_config(page_title="AI Meeting Minutes Generator", layout="centered")
 
-# --- Utility functions ---
 def apply_custom_css():
     st.markdown("""
         <style>
@@ -92,7 +91,7 @@ if not GROQ_API_KEY:
     st.error("GROQ_API_KEY not found. Please check your .env file.")
     st.stop()
 
-# --- LLM Setup ---
+
 def initialize_llm():
     return ChatGroq(api_key=GROQ_API_KEY, model_name="llama3-8b-8192", temperature=0.3)
 
